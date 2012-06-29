@@ -113,9 +113,9 @@
 		}
 	}
 	
-	testOS('iPad', NULL, '#iPad; U; CPU OS ([0-9_]{3-5})#', '_'); // Check this
-	testOS('iPhone', NULL, '#iPhone OS ([0-9_]{3-5})#', '_');
-	testOS('iPod Touch', '#iPod#', '#iPhone OS ([0-9_]{3-5})#', '_');
+	testOS('iPad', NULL, '#iPad; U; CPU OS ([0-9_]{3-})#', '_'); // Check this
+	testOS('iPhone', NULL, '#iPhone OS ([0-9_]{3-})#', '_');
+	testOS('iPod Touch', '#iPod#', '#iPhone OS ([0-9_]{3-})#', '_');
 	testOS('Android', NULL, '#Android ([0-9.]{3-})#');
 	testOS('BlackBerry', NULL, '#Version/([0-9.]{5})#');
 	
@@ -132,7 +132,7 @@
 	testOS('Unknow Windows', '#Windows#');
 
 	testOS('FreeBSD');
-	testOS('Mac OS X');
+	testOS('Mac OS X', NULL, '#Mac OS X ([0-9_]{3-})#', '_');
 	testOS('Ubuntu Linux', '#Ubuntu#i', '#Ubuntu/([0-9.]{4-5})#');
 	testOS('Fedora');
 	testOS('Gentoo', '#gentoo#i');
