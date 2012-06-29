@@ -57,8 +57,8 @@
 	$geoloc = array();
 	if(in_array($ipAddress, array('127.0.0.1', '::1'))) {
 		$geoloc['country']['code'] = '??';
-		$geoloc['country']['name'] = 'Undefined';
-		$geoloc['city']['name']    = 'Undefined';
+		$geoloc['country']['name'] = 'Undefined (Local access)';
+		$geoloc['city']['name']    = 'Undefined (Local access)';
 		$geoloc['latitude']        = 0;
 		$geoloc['longitude']       = 0;
 	}
@@ -70,3 +70,76 @@
 		$geoloc['latitude']        = $record->latitude;
 		$geoloc['longitude']       = $record->longitude;
 	}
+
+	// Cookies
+
+	$cookieEnabled = (bool) $dump->browser->cookie;
+
+
+
+	$userAgent = $dump->browser->userAgent;
+
+	// Operating System
+	
+	$OS = array(
+		'name'    => 'Undefined',
+		'version' => '0.0'
+	);
+	
+	function testOS($OSName, $regexName = NULL, $regexVersion = NULL, $dotsRepresentation = NULL) {
+		global $OS;
+		global $userAgent;
+
+		if($OS['name'] != 'Undefined') return;
+		if($regexName == NULL) 
+			$regexName = '#' . $OSName . '#';
+
+		if(preg_match($regexName, $userAgent)) {
+			$OS['name'] = $OSName;
+			if($regexVersion != NULL) {
+				if(strpos($regexVersion, '#') !== false) {
+					$matches = array();
+					if(preg_match($regexVersion, $userAgent, $matches)) {
+						$OS['version'] = $matches[1];
+						if($dotsRepresentation != NULL) {
+							$OS['version'] = str_replace($dotsRepresentation, '.', $OS['version']);
+						}
+					}
+				}
+				else {
+					$OS['version'] = $regexVersion;
+				}
+			}
+		}
+	}
+	
+	testOS('iPad', NULL, '#iPad; U; CPU OS ([0-9_]{3-5})#', '_'); // Check this
+	testOS('iPhone', NULL, '#iPhone OS ([0-9_]{3-5})#', '_');
+	testOS('iPod Touch', '#iPod#', '#iPhone OS ([0-9_]{3-5})#', '_');
+	testOS('Android', NULL, '#Android ([0-9.]{3-})#');
+	testOS('BlackBerry', NULL, '#Version/([0-9.]{5})#');
+	
+	testOS('Windows 8', '#Windows NT 6.2#', '8');
+	testOS('Windows 7', '#Windows NT 6.1#', '7');
+	testOS('Windows Vista', '#Windows NT 6.0#', 'Vista');
+	testOS('Windows XP', '#Windows NT 5.1#', 'XP');
+	testOS('Windows Server 2003', '#Windows NT 5.2#', '2003');
+	testOS('Windows 2000', '#Windows NT 5.0#', '2000');
+	testOS('Windows NT', '#Windows NT#', 'NT');
+	testOS('Windows 98', '#Windows 98#', '98');
+	testOS('Windows 95', '#Windows 95#', '95');
+	testOS('Windows 3.1', '#Windows 3.1#', '3.1');
+	testOS('Unknow Windows', '#Windows#');
+
+	testOS('FreeBSD');
+	testOS('Mac OS X');
+	testOS('Ubuntu Linux', '#Ubuntu#i', '#Ubuntu/([0-9.]{4-5})#');
+	testOS('Fedora');
+	testOS('Gentoo', '#gentoo#i');
+	testOS('Kanotix', '#kanotix#i');
+	testOS('Open Solaris', '#SunOS#');
+	testOS('Unknow Linux', '#Linux#');
+
+	testOS('Irix', '#IRIX#');
+	testOS('BeOS');
+	testOS('SymbianOS', NULL, '#SymbianOS/([0-9.]{3})#');

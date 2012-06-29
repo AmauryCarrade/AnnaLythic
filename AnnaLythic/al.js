@@ -26,12 +26,9 @@
 			userAgent: 	navigator.userAgent,
 			cookie: 	navigator.cookieEnabled,
 			plugins: 	navigator.plugins
-		},
-		os:  navigator.platform
+		}
 	};
 
-	console.log(dump);
-	
 	// Sending request
 	var xhr = null;
 	
@@ -56,6 +53,9 @@
 				if(xhr.responseText.indexOf('|') !== false) {
 					if(xhr.responseText.split('|')[0] == 'alert') {
 						alert(xhr.responseText.split('|')[1]);
+					}
+					else {
+						console.log(xhr.responseText);
 					}
 				}
 				else {
