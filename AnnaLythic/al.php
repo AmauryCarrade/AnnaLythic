@@ -8,17 +8,34 @@
 
 	$settings = include('settings.php');
 
-	// Database connexion
-	try {
-		$pdo = new PDO($settings['db']['type'] . ':host=' . $settings['db']['host'] . ';dbname=' . $settings['db']['base'], $settings['db']['user'], $settings['db']['pass']);
-	}
-	catch (PDOException $e) {
-		echo '[AnnaLythics] An error occurred about PDO. We are unable to connect the database. Error #' . $e->getCode() . ': ' . $e->getMessage();
-	}
-
 	$dump = json_decode($_POST['dump']);
-
-	//print_r($dump);
+	if($dump == NULL) {
+		echo 'An error occurred when parsing JSON: ';
+		switch (json_last_error()) {
+	        case JSON_ERROR_NONE:
+	            echo 'No error (o_O) (JSON_ERROR_NONE)';
+	        break;
+	        case JSON_ERROR_DEPTH:
+	            echo 'Max depth (JSON_ERROR_DEPTH)';
+	        break;
+	        case JSON_ERROR_STATE_MISMATCH:
+	            echo 'State mismatch or underflow (JSON_ERROR_STATE_MISMATCH)';
+	        break;
+	        case JSON_ERROR_CTRL_CHAR:
+	            echo 'Error when controlling characters (JSON_ERROR_CTRL_CHAR)';
+	        break;
+	        case JSON_ERROR_SYNTAX:
+	            echo 'Syntax error (JSON_ERROR_SYNTAX)';
+	        break;
+	        case JSON_ERROR_UTF8:
+	            echo 'Encoding error (UTF-8 is needed) (JSON_ERROR_UTF8)';
+	        break;
+	        default:
+	            echo 'Unknow error... FUUUUU';
+	        break;
+	    }
+	    exit;
+	}
 
 	// Plugins
 
@@ -33,20 +50,19 @@
 	}
 
 	foreach($dump->browser->plugins as $id => $plugin) {
-		testPlugin($plugin->name, 'QuickTime');
-		testPlugin($plugin->name, 'Adobe Acrobat', 'PDF', true);
-		testPlugin($plugin->name, 'Shockwave Flash', 'Flash', true);
-		testPlugin($plugin->name, 'Google Earth Plugin', 'Google Earth', true);
-		testPlugin($plugin->name, 'Java(TM)', 'Java');
-		testPlugin($plugin->name, 'Silverlight Plug-In', 'Silverlight', true);
-		testPlugin($plugin->name, 'VLC Web Plugin', 'VLC', true);
+		testPlugin($plugin, 'QuickTime');
+		testPlugin($plugin, 'Adobe Acrobat', 'PDF', true);
+		testPlugin($plugin, 'Shockwave Flash', 'Flash', true);
+		testPlugin($plugin, 'Google Earth Plugin', 'Google Earth', true);
+		testPlugin($plugin, 'Java(TM)', 'Java');
+		testPlugin($plugin, 'Silverlight Plug-In', 'Silverlight', true);
+		testPlugin($plugin, 'VLC Web Plugin', 'VLC', true);
 	}
 	foreach($pluginsEnabled as $name => $enabled) {
 		if($enabled === 'undefined') {
 			$pluginsEnabled[$name] = false;
 		}
 	}
-	
 
 	$ipAddress = $_SERVER['REMOTE_ADDR'];
 
@@ -77,7 +93,7 @@
 
 
 
-	$userAgent = $dump->browser->userAgent;
+	$userAgent = $_SERVER['HTTP_USER_AGENT'];
 
 	// Operating System
 	
@@ -143,3 +159,16 @@
 	testOS('Irix', '#IRIX#');
 	testOS('BeOS');
 	testOS('SymbianOS', NULL, '#SymbianOS/([0-9.]{3})#');
+
+
+
+
+
+	// Database connexion
+	try {
+		$pdo = new PDO($settings['db']['type'] . ':host=' . $settings['db']['host'] . ';dbname=' . $settings['db']['base'], $settings['db']['user'], $settings['db']['pass']);
+	}
+	catch (PDOException $e) {
+		echo "\n\n" . '[AnnaLythic] An error occurred about PDO. We are unable to connect the database. Error #' . $e->getCode() . ': ' . $e->getMessage();
+		exit;
+	}
