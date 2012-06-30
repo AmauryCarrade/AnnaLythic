@@ -66,6 +66,65 @@
 	$settings['os'][] = array('SymbianOS', NULL, '#SymbianOS/([0-9.]{3})#');
 
 
+	// Browser detection
+	# === Usage
+	# $settings['os'][] = array('Browser Name', // Displayed in the dashboard
+	#							'Browser Regex (may be NULL if it is #Browser Name#) for detection in User Agent',
+	#							'Regex for version ($1 must contains the version number) for detection in 
+	#							 concerned User Agent. May be NULL if we can't detect the version.',
+	#							 It can also be a PHP callable (called with one argument, the User Agent;
+	#							 this callable must return a string: the version).
+	#							'Browser type: "user" or "bot". Default: "user"'
+	#					  );
+	#
+	# In case of changes, please publish your changes on Github (github.com/Bubbendorf/AnnaLythic)! Thanks :)
+
+	$settings['browsers'][] = array('Avant Browser');
+	$settings['browsers'][] = array('Baidu Transcoder', '#baidu Transcoder#', NULL, 'bot');
+	$settings['browsers'][] = array('Baidu Spider', NULL, NULL, 'bot');
+	$settings['browsers'][] = array('BING Bot', '#bingbot#', NULL, 'bot');
+	$settings['browsers'][] = array('Bloglines subscriber', '#Bloglines#', NULL, 'bot');
+	$settings['browsers'][] = array('Searchme Bot (Charlotte)', '#Charlotte#', NULL, 'bot');
+	$settings['browsers'][] = array('DotBot', NULL, NULL, 'bot');
+	$settings['browsers'][] = array('Dyna Web', '#DynaWeb#', NULL, 'bot');
+	$settings['browsers'][] = array('FeedFetcher-Google', NULL, NULL, 'bot');
+	$settings['browsers'][] = array('Firefox', NULL, '#Firefox/([0-9.]{3})#');
+	$settings['browsers'][] = array('Google Chrome', '#Chrome#', '#Chrome/([0-9.]{4})#');
+	$settings['browsers'][] = array('GoogleBot', '#Googlebot#i', NULL, 'bot');
+	$settings['browsers'][] = array('TencentTraveler');
+	$settings['browsers'][] = array('Internet Explorer', '#MSIE#', '#MSIE ([0-9.]{2,3})#');
+	$settings['browsers'][] = array('Maxthon', '#Maxthon#i', '#Maxthon ([0-9.]{3})#i');
+	$settings['browsers'][] = array('Mediapartners-Google (Adsense Google Bot)', '#Mediapartners-Google#', NULL, 'bot');
+	$settings['browsers'][] = array('Minefield', NULL, '#Minefield/([0-9.]{3})#');
+	$settings['browsers'][] = array('MSN Bot', '#msnbot#', NULL, 'bot');
+	$settings['browsers'][] = array('Opera', NULL, function($UserAgent) {
+		$matches = array();
+		if(preg_match('#Opera/([0-9.]{2,3})#', $UserAgent, $matches)) {
+			if($matches[1] != '9.80') {
+				return $matches[1];
+			}
+			else if(preg_match('#Version/([0-9.]{3,5})#', $UserAgent, $matches)) {
+				return $matches[1];
+			}
+			else return '9.80';
+		}
+	});
+	$settings['browsers'][] = array('Opera Mini', NULL, '#Version/([0-9.]{3})#');
+	$settings['browsers'][] = array('Opera Mobile', '#Opera Mobi#', '#Version/([0-9.]{3})#');
+	$settings['browsers'][] = array('Yahoo! Slurp', NULL, NULL, 'bot');
+	$settings['browsers'][] = array('Konqueror', '#Konqueror#i', '#Konqueror/([0-9.]{3})#i');
+	$settings['browsers'][] = array('Rekonq', '#rekonq#');
+	$settings['browsers'][] = array('BlackBerry');
+	$settings['browsers'][] = array('Safari', NULL, '#Version/([0-9.]{3})#');
+	$settings['browsers'][] = array('Lynx', NULL, '#Lynx/([0-9.]{3})#');
+	$settings['browsers'][] = array('Netscape', NULL, '#Netscape/([0-9.]{3})#');
+	$settings['browsers'][] = array('Nokia', NULL, '#Nokia([0-9A-Z-]{3-8})#');
+	$settings['browsers'][] = array('SeaMonkey', NULL, '#SeaMonkey/([0-9.]{3})#');
+	$settings['browsers'][] = array('W3C Validator', '#W3C_Validator#', NULL, 'bot');
+	$settings['browsers'][] = array('Ask Spider', '#Ask Jeeves/Teoma#', NULL, 'bot');
+	$settings['browsers'][] = array('ScoutJet web crawler', '#ScoutJet#', NULL, 'bot');
+
+
 
 	// Plugins detection
 	# === Usage

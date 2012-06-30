@@ -135,6 +135,49 @@
 
 
 
+	// Browser
+
+	$Browser = array(
+		'name'    => 'Undefined',
+		'version' => '0.0',
+		'type'    => 'Undefined'
+	);
+
+	function testBrowser($BrowserName, $regexName = NULL, $regexVersion = NULL, $type = 'user') {
+		global $Browser;
+		global $userAgent;
+
+		if($Browser['name'] != 'Undefined') return;
+		if($regexName == NULL) 
+			$regexName = '#' . $BrowserName . '#';
+
+		if(preg_match($regexName, $userAgent)) {
+			$Browser['name'] = $BrowserName;
+			if($regexVersion != NULL) {
+				if(is_string($regexVersion)) {
+					$matches = array();
+					if(preg_match($regexVersion, $userAgent, $matches)) {
+						$Browser['version'] = $matches[1];
+					}
+				}
+				else if(is_callable($regexVersion)) {
+					$Browser['version'] = $regexVersion($userAgent);
+				}
+			}
+		}
+		$Browser['type'] = in_array($type, array('user', 'bot')) ? $type : 'user';
+	}
+
+	foreach($settings['browsers'] as $BrowserToDetect) { // Items in array: see settings.php.
+		if(!isset($BrowserToDetect[1])) $BrowserToDetect[1] = NULL;
+		if(!isset($BrowserToDetect[2])) $BrowserToDetect[2] = NULL;
+		if(!isset($BrowserToDetect[3])) $BrowserToDetect[3] = 'user';
+		testBrowser($BrowserToDetect[0], $BrowserToDetect[1], $BrowserToDetect[2], $BrowserToDetect[3]);
+	}
+
+	print_r($Browser);
+
+
 
 	// Database connexion
 	try {
