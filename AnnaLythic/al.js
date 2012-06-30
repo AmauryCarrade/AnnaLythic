@@ -31,7 +31,6 @@
 	JSON += '"plugins":' + JSONPlugins + '}';
 	JSON += '}';
 
-	console.log(navigator.plugins, JSON);
 
 	// Sending request
 	var xhr = null;

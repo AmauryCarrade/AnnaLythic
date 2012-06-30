@@ -1,5 +1,6 @@
 <?php
 	header('Content-Type: text/plain');
+	ini_set('html_errors', '0');
 
 	if(file_exists('NotInstalled')) {
 		echo 'alert|Please install AnnaLythics by running AnnaLythic/install.php';
@@ -9,14 +10,11 @@
 	$settings = include('settings.php');
 
 	$dump = json_decode($_POST['dump']);
-	if($dump == NULL) {
+	if(json_last_error() != JSON_ERROR_NONE) {
 		echo 'An error occurred when parsing JSON: ';
 		switch (json_last_error()) {
-	        case JSON_ERROR_NONE:
-	            echo 'No error (o_O) (JSON_ERROR_NONE)';
-	        break;
 	        case JSON_ERROR_DEPTH:
-	            echo 'Max depth (JSON_ERROR_DEPTH)';
+	            echo 'Maximum depth exceeded (JSON_ERROR_DEPTH)';
 	        break;
 	        case JSON_ERROR_STATE_MISMATCH:
 	            echo 'State mismatch or underflow (JSON_ERROR_STATE_MISMATCH)';
@@ -31,11 +29,12 @@
 	            echo 'Encoding error (UTF-8 is needed) (JSON_ERROR_UTF8)';
 	        break;
 	        default:
-	            echo 'Unknow error... FUUUUU';
+	            echo 'Unknow error #' . json_last_error() . '... FUUUUU';
 	        break;
 	    }
 	    exit;
 	}
+
 
 	// Plugins
 
@@ -50,13 +49,11 @@
 	}
 
 	foreach($dump->browser->plugins as $id => $plugin) {
-		testPlugin($plugin, 'QuickTime');
-		testPlugin($plugin, 'Adobe Acrobat', 'PDF', true);
-		testPlugin($plugin, 'Shockwave Flash', 'Flash', true);
-		testPlugin($plugin, 'Google Earth Plugin', 'Google Earth', true);
-		testPlugin($plugin, 'Java(TM)', 'Java');
-		testPlugin($plugin, 'Silverlight Plug-In', 'Silverlight', true);
-		testPlugin($plugin, 'VLC Web Plugin', 'VLC', true);
+		foreach($settings['plugins'] as $pluginToDetect) {  // Items in array: see settings.php.
+			if(!isset($pluginToDetect[1])) $pluginToDetect[1] = NULL;
+			if(!isset($pluginToDetect[2]) || !is_bool($pluginToDetect[2])) $pluginToDetect[2] = false;
+			testPlugin($plugin, $pluginToDetect[0], $pluginToDetect[1], $pluginToDetect[2]);
+		}
 	}
 	foreach($pluginsEnabled as $name => $enabled) {
 		if($enabled === 'undefined') {
@@ -94,7 +91,7 @@
 
 
 	$userAgent = $_SERVER['HTTP_USER_AGENT'];
-
+	
 	// Operating System
 	
 	$OS = array(
@@ -128,38 +125,13 @@
 			}
 		}
 	}
-	
-	testOS('iPad', NULL, '#iPad; U; CPU OS ([0-9_]{3-})#', '_'); // Check this
-	testOS('iPhone', NULL, '#iPhone OS ([0-9_]{3-})#', '_');
-	testOS('iPod Touch', '#iPod#', '#iPhone OS ([0-9_]{3-})#', '_');
-	testOS('Android', NULL, '#Android ([0-9.]{3-})#');
-	testOS('BlackBerry', NULL, '#Version/([0-9.]{5})#');
-	
-	testOS('Windows 8', '#Windows NT 6.2#', '8');
-	testOS('Windows 7', '#Windows NT 6.1#', '7');
-	testOS('Windows Vista', '#Windows NT 6.0#', 'Vista');
-	testOS('Windows XP', '#Windows NT 5.1#', 'XP');
-	testOS('Windows Server 2003', '#Windows NT 5.2#', '2003');
-	testOS('Windows 2000', '#Windows NT 5.0#', '2000');
-	testOS('Windows NT', '#Windows NT#', 'NT');
-	testOS('Windows 98', '#Windows 98#', '98');
-	testOS('Windows 95', '#Windows 95#', '95');
-	testOS('Windows 3.1', '#Windows 3.1#', '3.1');
-	testOS('Unknow Windows', '#Windows#');
 
-	testOS('FreeBSD');
-	testOS('Mac OS X', NULL, '#Mac OS X ([0-9_]{3-})#', '_');
-	testOS('Ubuntu Linux', '#Ubuntu#i', '#Ubuntu/([0-9.]{4-5})#');
-	testOS('Fedora');
-	testOS('Gentoo', '#gentoo#i');
-	testOS('Kanotix', '#kanotix#i');
-	testOS('Open Solaris', '#SunOS#');
-	testOS('Unknow Linux', '#Linux#');
-
-	testOS('Irix', '#IRIX#');
-	testOS('BeOS');
-	testOS('SymbianOS', NULL, '#SymbianOS/([0-9.]{3})#');
-
+	foreach($settings['os'] as $OSToDetect) { // Items in array: see settings.php.
+		if(!isset($OSToDetect[1])) $OSToDetect[1] = NULL;
+		if(!isset($OSToDetect[2])) $OSToDetect[2] = NULL;
+		if(!isset($OSToDetect[3])) $OSToDetect[3] = NULL;
+		testOS($OSToDetect[0], $OSToDetect[1], $OSToDetect[2], $OSToDetect[3]);
+	}
 
 
 
@@ -169,6 +141,6 @@
 		$pdo = new PDO($settings['db']['type'] . ':host=' . $settings['db']['host'] . ';dbname=' . $settings['db']['base'], $settings['db']['user'], $settings['db']['pass']);
 	}
 	catch (PDOException $e) {
-		echo "\n\n" . '[AnnaLythic] An error occurred about PDO. We are unable to connect the database. Error #' . $e->getCode() . ': ' . $e->getMessage();
+		echo "\n" . '[AnnaLythic] An error occurred about PDO. We are unable to connect the database. Error #' . $e->getCode() . ': ' . $e->getMessage();
 		exit;
 	}
