@@ -68,13 +68,13 @@
 
 	// Browser detection
 	# === Usage
-	# $settings['os'][] = array('Browser Name', // Displayed in the dashboard
-	#							'Browser Regex (may be NULL if it is #Browser Name#) for detection in User Agent',
-	#							'Regex for version ($1 must contains the version number) for detection in 
-	#							 concerned User Agent. May be NULL if we can't detect the version.',
-	#							 It can also be a PHP callable (called with one argument, the User Agent;
-	#							 this callable must return a string: the version).
-	#							'Browser type: "user" or "bot". Default: "user"'
+	# $settings['browsers'][] = array('Browser Name', // Displayed in the dashboard
+	#								  'Browser Regex (may be NULL if it is #Browser Name#) for detection in User Agent',
+	#								  'Regex for version ($1 must contains the version number) for detection in 
+	#							 	   concerned User Agent. May be NULL if we can't detect the version.',
+	#							 	   It can also be a PHP callable (called with one argument, the User Agent;
+	#							 	   this callable must return a string: the version).
+	#								  'Browser type: "user" or "bot". Default: "user"'
 	#					  );
 	#
 	# In case of changes, please publish your changes on Github (github.com/Bubbendorf/AnnaLythic)! Thanks :)

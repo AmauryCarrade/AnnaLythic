@@ -12,12 +12,15 @@
 	 * Configuration done; close this file, now ;) .
 	 */
 
-	var JSONPlugins = '{', 
-		i = 0;
-	for(id in navigator.plugins) {
-		JSONPlugins += '"' + id + '":"' + navigator.plugins[id].name + '"';
-		if(parseFloat(id)+1 != navigator.plugins.length) JSONPlugins += ',';
-		else break;
+	navigator.plugins.refresh();
+
+	var JSONPlugins = '{';
+	if(navigator.plugins.length != 0) {
+		for(id in navigator.plugins) {
+			JSONPlugins += '"' + id + '":"' + navigator.plugins[id].name + '"';
+			if(parseFloat(id)+1 != navigator.plugins.length) JSONPlugins += ',';
+			else break;
+		}
 	}
 	JSONPlugins += '}';
 
@@ -31,6 +34,7 @@
 	JSON += '"plugins":' + JSONPlugins + '}';
 	JSON += '}';
 
+	console.log(JSON);
 
 	// Sending request
 	var xhr = null;

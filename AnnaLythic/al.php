@@ -175,9 +175,6 @@
 		testBrowser($BrowserToDetect[0], $BrowserToDetect[1], $BrowserToDetect[2], $BrowserToDetect[3]);
 	}
 
-	print_r($Browser);
-
-
 
 	// Database connexion
 	try {
