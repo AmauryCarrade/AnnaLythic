@@ -26,15 +26,20 @@
 
 	var JSON = '{';
 	JSON += '"url":"' + document.URL + '",';
+	JSON += '"referrer":"' + document.referrer + '",';
+	JSON += '"screen":{';
+		JSON += '"width":"' + screen.width + '",';
+		JSON += '"height":"' + screen.height + '",';
+		JSON += '"colorDepth":"' + window.screen.colorDepth + '",';
+		JSON += '"fontSmoothing":"' + window.screen.fontSmoothingEnabled + '"';
+	JSON += '},';
 	JSON += '"browser":{';
-	JSON += '"language":"' + navigator.language + '",';
-	JSON += '"cookie":"';
-	JSON += navigator.cookieEnabled ? 'true' : 'false';
-	JSON += '",';
-	JSON += '"plugins":' + JSONPlugins + '}';
+		JSON += '"language":"' + navigator.language + '",';
+		JSON += '"cookie":"';
+		JSON += navigator.cookieEnabled ? 'true' : 'false';
+		JSON += '",';
+		JSON += '"plugins":' + JSONPlugins + '}';
 	JSON += '}';
-
-	console.log(JSON);
 
 	// Sending request
 	var xhr = null;

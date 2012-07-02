@@ -35,7 +35,6 @@
 	    exit;
 	}
 
-
 	// Plugins
 
 	$pluginsEnabled = array();
@@ -175,6 +174,40 @@
 		testBrowser($BrowserToDetect[0], $BrowserToDetect[1], $BrowserToDetect[2], $BrowserToDetect[3]);
 	}
 
+
+
+	// Screen
+
+	$ScreenDefinition = array(
+		'width' => $dump->screen->width,
+		'height' => $dump->screen->height,
+		'text' => $dump->screen->width . 'x' . $dump->screen->height
+	);
+
+	$ColorDepth = (int) $dump->screen->colorDepth;
+	$ColorNum   = pow(2, $ColorDepth);
+
+	$FontSmoothing = (bool) $dump->screen->fontSmoothing;
+
+
+
+
+
+
+	$records = array(
+		'browser' => $Browser,
+		'os'      => $OS,
+		'plugins' => $pluginsEnabled,
+		'screen'  => array(
+			'definition' => $ScreenDefinition,
+			'colors' => array(
+				'depth' => $ColorDepth,
+				'number' => $ColorNum
+			),
+			'fontSmoothing' => $FontSmoothing
+		),
+		'referrer' => $dump->referrer
+	);
 
 	// Database connexion
 	try {
