@@ -13,6 +13,15 @@
 	$settings['db']['base']   = 'AnnaLythic';  // The base to be used.
 	$settings['db']['prefix'] = 'al_';		   // If this is not null, all tables will be prefixed.
 
+
+
+	// Session
+	$settings['session'] = 'AnnaLythic'; // The session's namespace name.
+
+
+
+	// Geolocation
+
 	// If false, users geolocation will be disabled. In this case, you can delete the lib/GeoIP folder 
 	// (size: >= 17 Mo, due to the database).
 	$settings['geoip']['enabled'] = true;
@@ -20,6 +29,8 @@
 	// Path to the GeoIP database (frequent file name: GeoLiteCity.dat). If you have purchased a license,
 	// you can use a better database.
 	$settings['geoip']['db']  = 'lib/GeoIP/GeoLiteCity.dat';
+
+
 
 	// Operating System detection
 	# === Usage
@@ -145,6 +156,15 @@
 	$settings['plugins'][] = array('Silverlight Plug-In', 'Silverlight', true);
 	$settings['plugins'][] = array('VLC Web Plugin', 'VLC', true);
 
+
+	// Search engine detection
+	# === Usage
+	# $settings['searchEngine'][] = array('The name of the search engine',
+	#									  'A regex to detect the search engine in the Referrer',
+	#									  'The GET variable who contains the keywords. May be NULL if no keyword 
+	#									   can be found in the referrer.'
+	#								)
+	$settings['searchEngines'][] = array('Google', '#google.(.+){2,4}/url#i', 'q');
 
 	/****************************************************************
 	 * /!\ DO NOT FORGET TO CONFIGURE THE PATH TO AnnaLythic/al.php IN AnnaLythic/al.js FILE (line 9).

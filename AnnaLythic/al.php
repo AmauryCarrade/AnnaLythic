@@ -1,6 +1,7 @@
 <?php
 	header('Content-Type: text/plain');
 	ini_set('html_errors', '0');
+	session_start();
 
 	if(file_exists('NotInstalled')) {
 		echo 'alert|Please install AnnaLythics by running AnnaLythic/install.php';
@@ -191,6 +192,42 @@
 
 
 
+	// Referrer & search engine
+
+	$referrer = (string) $dump->referrer;
+	$Source = array(
+		'url'	   => $referrer,
+		'type'     => NULL, // direct, internal, website or searchEngine.
+		'name'     => NULL, // If the source is a search engine, his name.
+		'keywords' => NULL
+	);
+
+	if($referrer == NULL) {
+		$Source['type'] = 'direct';
+	}
+	else if(parse_url($referrer, PHP_URL_HOST) == parse_url($dump->url, PHP_URL_HOST)) {
+		$Source['type'] = 'internal';
+	}
+	else {
+		foreach($settings['searchEngines'] as $searchEngineToDetect) {
+			if(!isset($searchEngineToDetect[2])) $searchEngineToDetect[2] = NULL;
+			if(preg_match($searchEngineToDetect[1], $referrer)) {
+				$Source['name'] = $searchEngineToDetect[0];
+				if($searchEngineToDetect[2] != NULL) {
+					$urlQuery = parse_url($referrer, PHP_URL_QUERY);
+					$query = array();
+					parse_str($urlQuery, $query);
+					$Source['keywords'] = $query[$searchEngineToDetect[2]];
+				}
+			}
+		}
+		if($Source['type'] == NULL) {
+			$Source['type'] = 'website';
+		}
+	}
+
+
+
 
 
 
@@ -206,10 +243,13 @@
 			),
 			'fontSmoothing' => $FontSmoothing
 		),
-		'referrer' => $dump->referrer
+		'source' => $Source
 	);
 
+
+
 	// Database connexion
+
 	try {
 		$pdo = new PDO($settings['db']['type'] . ':host=' . $settings['db']['host'] . ';dbname=' . $settings['db']['base'], $settings['db']['user'], $settings['db']['pass']);
 	}
@@ -217,3 +257,23 @@
 		echo "\n" . '[AnnaLythic] An error occurred about PDO. We are unable to connect the database. Error #' . $e->getCode() . ': ' . $e->getMessage();
 		exit;
 	}
+
+
+
+	// Session management
+
+	# Get session for an easier access
+	$session = $_SESSION[$settings['session']];
+	$datetime = new \Datetime();
+
+	# Saving current page in session history
+	$session['history'][] = array(
+		'page' => $dump->url,
+		'time' => $datetime
+	);
+
+	# Visit duration
+	$session['duration'] = abs($datetime->getTimestamp() - $session['history'][0]['time']->getTimestamp());
+
+	# Save the session
+	$_SESSION[$settings['session']] = $session;
