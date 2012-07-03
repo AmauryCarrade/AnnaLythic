@@ -65,23 +65,25 @@
 
 	// Geolocation
 
-	require_once('lib/GeoIP/geoipcity.inc');
-	$geoIp = geoip_open($settings['geoip']['db'], GEOIP_STANDARD);
 	$geoloc = array();
-	if(in_array($ipAddress, array('127.0.0.1', '::1'))) {
-		$geoloc['country']['code'] = '??';
-		$geoloc['country']['name'] = 'Undefined (Local access)';
-		$geoloc['city']['name']    = 'Undefined (Local access)';
-		$geoloc['latitude']        = 0;
-		$geoloc['longitude']       = 0;
-	}
-	else {
-		$record = geoip_record_by_addr($geoIp, $ipAddress);
-		$geoloc['country']['code'] = $record->country_code;
-		$geoloc['country']['name'] = $record->country_name;
-		$geoloc['city']['name']    = $record->city;
-		$geoloc['latitude']        = $record->latitude;
-		$geoloc['longitude']       = $record->longitude;
+	if($settings['geoip']['enabled']) {
+		require_once('lib/GeoIP/geoipcity.inc');
+		$geoIp = geoip_open($settings['geoip']['db'], GEOIP_STANDARD);
+		if(in_array($ipAddress, array('127.0.0.1', '::1'))) {
+			$geoloc['country']['code'] = '??';
+			$geoloc['country']['name'] = 'Undefined (Local access)';
+			$geoloc['city']['name']    = 'Undefined (Local access)';
+			$geoloc['latitude']        = 0;
+			$geoloc['longitude']       = 0;
+		}
+		else {
+			$record = geoip_record_by_addr($geoIp, $ipAddress);
+			$geoloc['country']['code'] = $record->country_code;
+			$geoloc['country']['name'] = $record->country_name;
+			$geoloc['city']['name']    = $record->city;
+			$geoloc['latitude']        = $record->latitude;
+			$geoloc['longitude']       = $record->longitude;
+		}
 	}
 
 	// Cookies
@@ -186,7 +188,6 @@
 	);
 
 	$ColorDepth = (int) $dump->screen->colorDepth;
-	$ColorNum   = pow(2, $ColorDepth);
 
 	$FontSmoothing = (bool) $dump->screen->fontSmoothing;
 
@@ -212,6 +213,7 @@
 		foreach($settings['searchEngines'] as $searchEngineToDetect) {
 			if(!isset($searchEngineToDetect[2])) $searchEngineToDetect[2] = NULL;
 			if(preg_match($searchEngineToDetect[1], $referrer)) {
+				$Source['type'] = 'searchEngine';
 				$Source['name'] = $searchEngineToDetect[0];
 				if($searchEngineToDetect[2] != NULL) {
 					$urlQuery = parse_url($referrer, PHP_URL_QUERY);
@@ -237,15 +239,15 @@
 		'plugins' => $pluginsEnabled,
 		'screen'  => array(
 			'definition' => $ScreenDefinition,
-			'colors' => array(
-				'depth' => $ColorDepth,
-				'number' => $ColorNum
-			),
+			'colorDepth' => $ColorDepth,
 			'fontSmoothing' => $FontSmoothing
 		),
 		'source' => $Source
 	);
 
+	if($settings['geoip']['enabled']) {
+		$records['geolocation'] = $geoloc;
+	}
 
 
 	// Database connexion
@@ -263,8 +265,13 @@
 	// Session management
 
 	# Get session for an easier access
-	$session = $_SESSION[$settings['session']];
+	$session = $_SESSION[$settings['session']['name']];
 	$datetime = new \Datetime();
+
+	# @see settings.php:23
+	if(abs($datetime->getTimestamp() - $session['history'][count($session['history']) - 1]['time']->getTimestamp()) > $settings['session']['durationBetweenTwoSessions']) {
+		$session = array();
+	}
 
 	# Saving current page in session history
 	$session['history'][] = array(
@@ -276,4 +283,73 @@
 	$session['duration'] = abs($datetime->getTimestamp() - $session['history'][0]['time']->getTimestamp());
 
 	# Save the session
-	$_SESSION[$settings['session']] = $session;
+	$_SESSION[$settings['session']['name']] = $session;
+
+
+	
+	// Data storage
+	$tableVisits = $settings['db']['prefix'] . 'visits';
+	$tableSessions = $settings['db']['prefix'] . 'sessions';
+	try {
+		# Visit
+		$sql = 'INSERT INTO :table (ip, url, datetime, records)
+				VALUES (:ip, :url, NOW(), :records)';
+
+		$sql = str_replace(':table', $tableVisits, $sql);
+		$request = $pdo->prepare($sql);
+		$request->execute(array(
+			':ip'      => ip2long($ipAddress),
+			':url'     => $dump->url,
+			':records' => serialize($records)
+		));
+
+		# Session
+		$sql;
+		if(!isset($session['id'])) {
+			$sql = 'INSERT INTO :table (ip, history, pagesCount, duration)
+					VALUES (:ip, :history, :pagesCount, :duration)';
+		}
+		else {
+			$sql = 'UPDATE :table SET ip = :ip,
+									  history = :history,
+									  pagesCount = :pagesCount,
+									  duration = :duration
+					WHERE session_id = :session_id';
+		}
+
+		$sql = str_replace(':table', $tableSessions, $sql);
+		echo $sql;
+		$ip = ip2long($ipAddress); 
+		$history = serialize($session['history']); 
+		$pageCount = count($session['history']);
+
+		$request = $pdo->prepare($sql);
+		$request->bindParam(':ip', $ip, PDO::PARAM_INT);
+		$request->bindParam(':history', $history, PDO::PARAM_STR);
+		$request->bindParam(':pagesCount', $pageCount, PDO::PARAM_INT);
+		$request->bindParam(':duration', $session['duration'], PDO::PARAM_INT);
+		if(isset($session['id'])) {
+			$request->bindParam(':session_id', $session['id'], PDO::PARAM_INT);
+		}
+		$request->execute();
+		print_r($request->errorInfo());
+		if(!isset($session['id'])) {
+			if($pdo->lastInsertId() != NULL) {
+				$_SESSION[$settings['session']['name']]['id'] = $pdo->lastInsertId();
+			}
+			else {
+				$request = $pdo->prepare("SELECT session_id FROM $tableSessions ORDER BY session_id DESC LIMIT 1");
+				$request->execute();
+				$result = $request->fetch();
+				$_SESSION[$settings['session']['name']]['id'] = $result['session_id'];
+			}
+		}
+	}
+	catch (PDOException $e) {
+		echo "\n" . '[AnnaLythic] An error occurred about PDO. We are unable to save tracking data. Error #' . $e->getCode() . ': ' . $e->getMessage();
+		exit;
+	}
+	catch (Exception $e) {
+		echo "\n" . '[AnnaLythic] An error occurred. Error #' . $e->getCode() . ': ' . $e->getMessage();
+		exit;
+	}

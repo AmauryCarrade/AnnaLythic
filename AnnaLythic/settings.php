@@ -6,17 +6,25 @@
 	$settings = array();
 
 	// Database connexion (TODO: Check SQLite DSN)
-	$settings['db']['type']   = 'mysql';       // Values: PDO engine (mysql, postgresql, sqlite...) (/!\ Only PDO.)
-	$settings['db']['host']   = 'localhost';   // Where is hosted the database? (SQLite: tip here the path to the file.)
-	$settings['db']['user']   = 'root';        // Username to use to connect the database.
-	$settings['db']['pass']   = '';            // Password to use to connect the database.
-	$settings['db']['base']   = 'AnnaLythic';  // The base to be used.
-	$settings['db']['prefix'] = 'al_';		   // If this is not null, all tables will be prefixed.
+	$settings['db']['type']   = 'mysql';		// Values: PDO engine (mysql, postgresql, sqlite...) (/!\ Only PDO.)
+	$settings['db']['host']   = 'localhost';	// Where is hosted the database? (SQLite: tip here the path to the file.)
+	$settings['db']['user']   = 'root';			// Username to use to connect the database.
+	$settings['db']['pass']   = '';				// Password to use to connect the database.
+	$settings['db']['base']   = 'annalythic';	// The base to be used.
+	$settings['db']['prefix'] = 'al_';			// If this is not null, all tables will be prefixed.
 
 
 
 	// Session
-	$settings['session'] = 'AnnaLythic'; // The session's namespace name.
+
+	// The session's namespace name.
+	$settings['session']['name'] = 'AnnaLythic';
+
+	// Enter here the minimal time before two sessions, in seconds.
+	// If a visitor visits don't your website during this time, even if the session is still active, 
+	// AnnaLythic's session will be reinitialized.
+	// Default: one hour.
+	$settings['session']['durationBetweenTwoSessions'] = 3600;
 
 
 
@@ -43,7 +51,6 @@
 	#							 this field NULL.'
 	#					  );
 	#
-	# In case of changes, please publish your changes on Github (github.com/Bubbendorf/AnnaLythic)! Thanks :)
 	
 	$settings['os'][] = array('iPad', NULL, '#iPad; U; CPU OS ([0-9_]{3,})#', '_'); // Check this
 	$settings['os'][] = array('iPhone', NULL, '#iPhone OS ([0-9_]{3,})#', '_');
@@ -88,8 +95,7 @@
 	#								  'Browser type: "user" or "bot". Default: "user"'
 	#					  );
 	#
-	# In case of changes, please publish your changes on Github (github.com/Bubbendorf/AnnaLythic)! Thanks :)
-
+	
 	$settings['browsers'][] = array('Avant Browser');
 	$settings['browsers'][] = array('Baidu Transcoder', '#baidu Transcoder#', NULL, 'bot');
 	$settings['browsers'][] = array('Baidu Spider', NULL, NULL, 'bot');
@@ -146,7 +152,6 @@
 	#								  the browser, false (default) else.'
 	#                          );
 	#
-	# In case of changes, please publish your changes on Github (github.com/Bubbendorf/AnnaLythic)! Thanks :)
 
 	$settings['plugins'][] = array('QuickTime');
 	$settings['plugins'][] = array('Adobe Acrobat', 'PDF', true);
@@ -164,14 +169,23 @@
 	#									  'The GET variable who contains the keywords. May be NULL if no keyword 
 	#									   can be found in the referrer.'
 	#								)
-	$settings['searchEngines'][] = array('Google', '#google.(.+){2,4}/url#i', 'q');
+	$settings['searchEngines'][] = array('Google', '#https?://(www.)?google.([a-zA-Z]){2,4}/url#i', 'q');
+	$settings['searchEngines'][] = array('Bing', '#https?://(www.)?bing.([a-zA-Z]){2,4}/search#i', 'q');
+	$settings['searchEngines'][] = array('Baidu', '#https?://(www.)?baidu.([a-zA-Z]){2,4}/s#i', 'wd');
+
+	
 
 	/****************************************************************
-	 * /!\ DO NOT FORGET TO CONFIGURE THE PATH TO AnnaLythic/al.php IN AnnaLythic/al.js FILE (line 9).
+	 * /!\ DO NOT FORGET TO CONFIGURE THE PATH TO AnnaLythic/al.php 
+	 *     (in AnnaLythic/al.js file; line 9).
 	 */
 
 	/****************************************************************
 	 * Configuration is done. You can close this file ;) .
+	 * 
+	 * Nota Bene: in case of changes, if you add a browser, an OS, a 
+	 * search engine, a plugin..., please publish your changes on Github 
+	 * by opening an issue (github.com/Bubbendorf/AnnaLythic)! Thanks :)
 	 */
 
 	return $settings;

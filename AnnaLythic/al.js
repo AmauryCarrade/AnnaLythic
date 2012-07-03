@@ -5,7 +5,7 @@
 	 * AnnaLythics -- TRACKER XHR SETTINGS
 	 */
 
-	// Path to AnnaLithic/al.php (absolute [recommended] or relative to the webpage, NOT AL.JS).
+	// Path to AnnaLithic/al.php (absolute [recommended] or relative to the webpage, NOT  to al.js).
 	var pathToAlPHP = 'AnnaLythic/al.php';
 
 	/*************************************************
