@@ -23,8 +23,8 @@
 	// Enter here the minimal time before two sessions, in seconds.
 	// If a visitor visits don't your website during this time, even if the session is still active, 
 	// AnnaLythic's session will be reinitialized.
-	// Default: one hour.
-	$settings['session']['durationBetweenTwoSessions'] = 3600;
+	// Default: 30 minutes.
+	$settings['session']['durationBetweenTwoSessions'] = 1800;
 
 
 
@@ -35,9 +35,19 @@
 	$settings['geoip']['enabled'] = true;
 
 	// Path to the GeoIP database (frequent file name: GeoLiteCity.dat). If you have purchased a license,
-	// you can use a better database.
+	// you can use a better database.	
+	// This path must be relative to al.php.
 	$settings['geoip']['db']  = 'lib/GeoIP/GeoLiteCity.dat';
 
+
+	// Filters
+
+	// If you want to exclude an IP Address, or a webpage, just add it below.
+	# === Usage
+	# $settings['filters']['ip'][] = 'Your IP here. May be a simple string or a RegEx. Regex delimiters MUST be "#".';
+	# $settings['filters']['page'][] = 'A webpage you want to exclude. May be a simple string or a RegEx. Regex delimiters MUST be "#".';
+
+	//$settings['filters']['ip'][] = '127.0.0.1';
 
 
 	// Operating System detection
@@ -172,6 +182,13 @@
 	$settings['searchEngines'][] = array('Google', '#https?://(www.)?google.([a-zA-Z]){2,4}/url#i', 'q');
 	$settings['searchEngines'][] = array('Bing', '#https?://(www.)?bing.([a-zA-Z]){2,4}/search#i', 'q');
 	$settings['searchEngines'][] = array('Baidu', '#https?://(www.)?baidu.([a-zA-Z]){2,4}/s#i', 'wd');
+
+
+
+	// Debug mode
+	# In debug mode, debug infos are displayed in your browser's console. You can access it with a tool like 
+	# Opera Dragonfly or Firebug.
+	$settings['debug'] = true;
 
 	
 

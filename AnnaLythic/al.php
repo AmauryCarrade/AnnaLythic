@@ -10,31 +10,87 @@
 
 	$settings = include('settings.php');
 
+	if($settings['debug']) {
+		echo '[AnnaLythic] Welcome. Debug mode is enabled.';
+	}
+
 	$dump = json_decode($_POST['dump']);
 	if(json_last_error() != JSON_ERROR_NONE) {
-		echo 'An error occurred when parsing JSON: ';
-		switch (json_last_error()) {
-	        case JSON_ERROR_DEPTH:
-	            echo 'Maximum depth exceeded (JSON_ERROR_DEPTH)';
-	        break;
-	        case JSON_ERROR_STATE_MISMATCH:
-	            echo 'State mismatch or underflow (JSON_ERROR_STATE_MISMATCH)';
-	        break;
-	        case JSON_ERROR_CTRL_CHAR:
-	            echo 'Error when controlling characters (JSON_ERROR_CTRL_CHAR)';
-	        break;
-	        case JSON_ERROR_SYNTAX:
-	            echo 'Syntax error (JSON_ERROR_SYNTAX)';
-	        break;
-	        case JSON_ERROR_UTF8:
-	            echo 'Encoding error (UTF-8 is needed) (JSON_ERROR_UTF8)';
-	        break;
-	        default:
-	            echo 'Unknow error #' . json_last_error() . '... FUUUUU';
-	        break;
-	    }
+		if($settings['debug']) {
+			echo 'An error occurred when parsing JSON: ';
+			switch (json_last_error()) {
+		        case JSON_ERROR_DEPTH:
+		            echo 'Maximum depth exceeded (JSON_ERROR_DEPTH)';
+		        break;
+		        case JSON_ERROR_STATE_MISMATCH:
+		            echo 'State mismatch or underflow (JSON_ERROR_STATE_MISMATCH)';
+		        break;
+		        case JSON_ERROR_CTRL_CHAR:
+		            echo 'Error when controlling characters (JSON_ERROR_CTRL_CHAR)';
+		        break;
+		        case JSON_ERROR_SYNTAX:
+		            echo 'Syntax error (JSON_ERROR_SYNTAX)';
+		        break;
+		        case JSON_ERROR_UTF8:
+		            echo 'Encoding error (UTF-8 is needed) (JSON_ERROR_UTF8)';
+		        break;
+		        default:
+		            echo 'Unknow error #' . json_last_error() . '... FUUUUU';
+		        break;
+		    }
+		}
 	    exit;
 	}
+
+	// Check filters
+
+	if(isset($settings['filters']['ip'])) {
+		$exit = false;
+		foreach($settings['filters']['ip'] as $ip) {
+			if(strpos($ip, '#') !== false) {
+				if(preg_match($ip, $_SERVER['REMOTE_ADDR'])) {
+					$exit = true;
+					break;
+				}
+			}
+			else {
+				if($ip == $_SERVER['REMOTE_ADDR']) {
+					$exit = true;
+					break;
+				}
+			}
+		}
+		if($exit) {
+			if($settings['debug'])
+				echo '[AnnaLythic] Your IP (' .  $_SERVER['REMOTE_ADDR'] . ') is excluded from AnnaLythic. You have not been traced.';
+			exit;
+		}
+	}
+
+	if(isset($settings['filters']['page'])) {
+		$exit = false;
+		foreach($settings['filters']['page'] as $page) {
+			if(strpos($page, '#') !== false) {
+				if(preg_match($page, $dump->url)) {
+					$exit = true;
+					break;
+				}
+			}
+			else {
+				if($page == $dump->url) {
+					$exit = true;
+					break;
+				}
+			}
+		}
+		if($exit) {
+			if($settings['debug']) 
+				echo '[AnnaLythic] This page (' .  $dump->url . ') is excluded from AnnaLythic. You have not been traced.';
+			exit;
+		}
+	}
+
+
 
 	// Plugins
 
@@ -249,6 +305,11 @@
 		$records['geolocation'] = $geoloc;
 	}
 
+	if($settings['debug']) {
+		echo "\n\n" . 'Records:' . "\n\n";
+		print_r($records);
+	}
+
 
 	// Database connexion
 
@@ -256,7 +317,8 @@
 		$pdo = new PDO($settings['db']['type'] . ':host=' . $settings['db']['host'] . ';dbname=' . $settings['db']['base'], $settings['db']['user'], $settings['db']['pass']);
 	}
 	catch (PDOException $e) {
-		echo "\n" . '[AnnaLythic] An error occurred about PDO. We are unable to connect the database. Error #' . $e->getCode() . ': ' . $e->getMessage();
+		if($settings['debug'])
+			echo "\n" . '[AnnaLythic] An error occurred about PDO. We are unable to connect the database. Error #' . $e->getCode() . ': ' . $e->getMessage();
 		exit;
 	}
 
@@ -269,7 +331,7 @@
 	$datetime = new \Datetime();
 
 	# @see settings.php:23
-	if(abs($datetime->getTimestamp() - $session['history'][count($session['history']) - 1]['time']->getTimestamp()) > $settings['session']['durationBetweenTwoSessions']) {
+	if(isset($session['history']) && abs($datetime->getTimestamp() - $session['history'][count($session['history']) - 1]['time']->getTimestamp()) > $settings['session']['durationBetweenTwoSessions']) {
 		$session = array();
 	}
 
@@ -291,6 +353,18 @@
 	$tableVisits = $settings['db']['prefix'] . 'visits';
 	$tableSessions = $settings['db']['prefix'] . 'sessions';
 	try {
+		function lastInsertId($pdo, $table, $idField) {
+			if($pdo->lastInsertId() != NULL) {
+				return $pdo->lastInsertId();
+			}
+			else {
+				$request = $pdo->prepare("SELECT $idField FROM $table ORDER BY $idField DESC LIMIT 1");
+				$request->execute();
+				$result = $request->fetch();
+				return $result[$idField];
+			}
+		}
+
 		# Visit
 		$sql = 'INSERT INTO :table (ip, url, datetime, records)
 				VALUES (:ip, :url, NOW(), :records)';
@@ -299,15 +373,22 @@
 		$request = $pdo->prepare($sql);
 		$request->execute(array(
 			':ip'      => ip2long($ipAddress),
-			':url'     => $dump->url,
+			':url'     => $dump->url,	
 			':records' => serialize($records)
 		));
 
 		# Session
+		$_SESSION[$settings['session']['name']]['history'][count($session['history']) - 1]['visit_id'] = lastInsertId($pdo, $tableVisits, 'visit_id');
+
+		if($settings['debug']) {
+			echo "\n\n" . 'Session:' . "\n\n";
+			print_r($_SESSION[$settings['session']['name']]);
+		}
+
 		$sql;
 		if(!isset($session['id'])) {
-			$sql = 'INSERT INTO :table (ip, history, pagesCount, duration)
-					VALUES (:ip, :history, :pagesCount, :duration)';
+			$sql = 'INSERT INTO :table (ip, history, pagesCount, duration, entrance)
+					VALUES (:ip, :history, :pagesCount, :duration, :entrance)';
 		}
 		else {
 			$sql = 'UPDATE :table SET ip = :ip,
@@ -318,38 +399,34 @@
 		}
 
 		$sql = str_replace(':table', $tableSessions, $sql);
-		echo $sql;
-		$ip = ip2long($ipAddress); 
-		$history = serialize($session['history']); 
-		$pageCount = count($session['history']);
+
+		$ip = ip2long($ipAddress);
+		$history = serialize($session['history']);
+		$pagesCount = count($session['history']);
 
 		$request = $pdo->prepare($sql);
 		$request->bindParam(':ip', $ip, PDO::PARAM_INT);
 		$request->bindParam(':history', $history, PDO::PARAM_STR);
-		$request->bindParam(':pagesCount', $pageCount, PDO::PARAM_INT);
+		$request->bindParam(':pagesCount', $pagesCount, PDO::PARAM_INT);
 		$request->bindParam(':duration', $session['duration'], PDO::PARAM_INT);
 		if(isset($session['id'])) {
 			$request->bindParam(':session_id', $session['id'], PDO::PARAM_INT);
 		}
+		else {
+			$request->bindParam(':entrance', $session['history'][0]['visit_id'], PDO::PARAM_STR);
+		}
 		$request->execute();
-		print_r($request->errorInfo());
 		if(!isset($session['id'])) {
-			if($pdo->lastInsertId() != NULL) {
-				$_SESSION[$settings['session']['name']]['id'] = $pdo->lastInsertId();
-			}
-			else {
-				$request = $pdo->prepare("SELECT session_id FROM $tableSessions ORDER BY session_id DESC LIMIT 1");
-				$request->execute();
-				$result = $request->fetch();
-				$_SESSION[$settings['session']['name']]['id'] = $result['session_id'];
-			}
+			$_SESSION[$settings['session']['name']]['id'] = lastInsertId($pdo, $tableSessions, 'session_id');
 		}
 	}
 	catch (PDOException $e) {
-		echo "\n" . '[AnnaLythic] An error occurred about PDO. We are unable to save tracking data. Error #' . $e->getCode() . ': ' . $e->getMessage();
+		if($settings['debug'])
+			echo "\n" . '[AnnaLythic] An error occurred about PDO. We are unable to save tracking data. Error #' . $e->getCode() . ': ' . $e->getMessage();
 		exit;
 	}
 	catch (Exception $e) {
-		echo "\n" . '[AnnaLythic] An error occurred. Error #' . $e->getCode() . ': ' . $e->getMessage();
+		if($settings['debug'])
+			echo "\n" . '[AnnaLythic] An error occurred. Error #' . $e->getCode() . ': ' . $e->getMessage();
 		exit;
 	}
