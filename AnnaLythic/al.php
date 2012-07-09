@@ -117,6 +117,9 @@
 		}
 	}
 
+
+
+
 	$ipAddress = $_SERVER['REMOTE_ADDR'];
 
 	// Geolocation
@@ -127,7 +130,6 @@
 		$geoIp = geoip_open($settings['geoip']['db'], GEOIP_STANDARD);
 		if(in_array($ipAddress, array('127.0.0.1', '::1'))) {
 			$geoloc['country']['code'] = '??';
-			$geoloc['country']['name'] = 'Undefined (Local access)';
 			$geoloc['city']['name']    = 'Undefined (Local access)';
 			$geoloc['latitude']        = 0;
 			$geoloc['longitude']       = 0;
@@ -135,7 +137,6 @@
 		else {
 			$record = geoip_record_by_addr($geoIp, $ipAddress);
 			$geoloc['country']['code'] = $record->country_code;
-			$geoloc['country']['name'] = $record->country_name;
 			$geoloc['city']['name']    = $record->city;
 			$geoloc['latitude']        = $record->latitude;
 			$geoloc['longitude']       = $record->longitude;
@@ -144,7 +145,7 @@
 
 	// Cookies
 
-	$cookieEnabled = (bool) $dump->browser->cookie;
+	$cookiesEnabled = (bool) $dump->browser->cookie;
 
 
 
@@ -293,6 +294,7 @@
 		'browser' => $Browser,
 		'os'      => $OS,
 		'plugins' => $pluginsEnabled,
+		'cookies' => $cookiesEnabled,
 		'screen'  => array(
 			'definition' => $ScreenDefinition,
 			'colorDepth' => $ColorDepth,
@@ -315,6 +317,7 @@
 
 	try {
 		$pdo = new PDO($settings['db']['type'] . ':host=' . $settings['db']['host'] . ';dbname=' . $settings['db']['base'], $settings['db']['user'], $settings['db']['pass']);
+		$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 	}
 	catch (PDOException $e) {
 		if($settings['debug'])
@@ -323,35 +326,36 @@
 	}
 
 
-
 	// Session management
+	# $_SESSION[$settings['session']['name']] = array(); exit;
 
 	# Get session for an easier access
 	$session = $_SESSION[$settings['session']['name']];
 	$datetime = new \Datetime();
 
 	# @see settings.php:23
-	if(isset($session['history']) && abs($datetime->getTimestamp() - $session['history'][count($session['history']) - 1]['time']->getTimestamp()) > $settings['session']['durationBetweenTwoSessions']) {
+	if(isset($session['lastVisit']) && abs($datetime->getTimestamp() - $session['lastVisit']->getTimestamp()) > $settings['session']['durationBetweenTwoSessions']) {
+		session_regenerate_id();
 		$session = array();
 	}
 
-	# Saving current page in session history
-	$session['history'][] = array(
-		'page' => $dump->url,
-		'time' => $datetime
-	);
-
-	# Visit duration
-	$session['duration'] = abs($datetime->getTimestamp() - $session['history'][0]['time']->getTimestamp());
-
+	$session['lastVisit'] = new \Datetime();
+	
 	# Save the session
 	$_SESSION[$settings['session']['name']] = $session;
 
 
 	
 	// Data storage
-	$tableVisits = $settings['db']['prefix'] . 'visits';
-	$tableSessions = $settings['db']['prefix'] . 'sessions';
+	$tableSessions   = $settings['db']['prefix'] . 'sessions';
+	$tableNavigation = $settings['db']['prefix'] . 'navigation';
+	$tableNavigators = $settings['db']['prefix'] . 'navigators';
+	$tableOS         = $settings['db']['prefix'] . 'os';
+	$tablePlaces     = $settings['db']['prefix'] . 'places';
+	$tablePlugins    = $settings['db']['prefix'] . 'plugins';
+
+	$PHPSESSID = session_id();
+
 	try {
 		function lastInsertId($pdo, $table, $idField) {
 			if($pdo->lastInsertId() != NULL) {
@@ -365,59 +369,219 @@
 			}
 		}
 
-		# Visit
-		$sql = 'INSERT INTO :table (ip, url, datetime, records)
-				VALUES (:ip, :url, NOW(), :records)';
+		# First step: update the navigation table.
+		$sql = 'INSERT INTO :table (session_id, datetime, page)
+								  VALUES (:PHPSESSID, NOW(), :url)';
+		$sql = str_replace(':table', $tableNavigation, $sql);
 
-		$sql = str_replace(':table', $tableVisits, $sql);
 		$request = $pdo->prepare($sql);
 		$request->execute(array(
-			':ip'      => ip2long($ipAddress),
-			':url'     => $dump->url,	
-			':records' => serialize($records)
+			':PHPSESSID' => $PHPSESSID,
+			':url'       => $dump->url
 		));
 
-		# Session
-		$_SESSION[$settings['session']['name']]['history'][count($session['history']) - 1]['visit_id'] = lastInsertId($pdo, $tableVisits, 'visit_id');
 
-		if($settings['debug']) {
-			echo "\n\n" . 'Session:' . "\n\n";
-			print_r($_SESSION[$settings['session']['name']]);
-		}
-
-		$sql;
-		if(!isset($session['id'])) {
-			$sql = 'INSERT INTO :table (ip, history, pagesCount, duration, entrance)
-					VALUES (:ip, :history, :pagesCount, :duration, :entrance)';
+		# Next, we update or initiate the sessions table.
+		if(isset($_SESSION[$settings['session']['name']]['saved']) && $_SESSION[$settings['session']['name']]['saved']) {
+			$sql = 'UPDATE :table SET session_finish = NOW() WHERE session_id = :PHPSESSID';
+			$sql = str_replace(':table', $tableSessions, $sql);
+					
+			$request = $pdo->prepare($sql);
+			$request->execute(array(
+				':PHPSESSID' => $PHPSESSID
+			));
 		}
 		else {
-			$sql = 'UPDATE :table SET ip = :ip,
-									  history = :history,
-									  pagesCount = :pagesCount,
-									  duration = :duration
-					WHERE session_id = :session_id';
-		}
+			# Steps:
+			# 1. Get the navigator's ID;
+			# 2. Idem for the operating system;
+			# 3. Idem for the geolocation;
+			# 4. Save plugins in the database;
+			# 5. Add a row in the session table.
 
-		$sql = str_replace(':table', $tableSessions, $sql);
+			$navID = $OSID = $placeID = NULL;
 
-		$ip = ip2long($ipAddress);
-		$history = serialize($session['history']);
-		$pagesCount = count($session['history']);
+			# STEP 1 - BROWSER
+			$sql = 'SELECT navigator_id FROM :table 
+						   WHERE     navigator_name    = :navName 
+								 AND navigator_version = :navVersion
+								 AND navigator_type    = :navType';
+			$sql = str_replace(':table', $tableNavigators, $sql);
 
-		$request = $pdo->prepare($sql);
-		$request->bindParam(':ip', $ip, PDO::PARAM_INT);
-		$request->bindParam(':history', $history, PDO::PARAM_STR);
-		$request->bindParam(':pagesCount', $pagesCount, PDO::PARAM_INT);
-		$request->bindParam(':duration', $session['duration'], PDO::PARAM_INT);
-		if(isset($session['id'])) {
-			$request->bindParam(':session_id', $session['id'], PDO::PARAM_INT);
-		}
-		else {
-			$request->bindParam(':entrance', $session['history'][0]['visit_id'], PDO::PARAM_STR);
-		}
-		$request->execute();
-		if(!isset($session['id'])) {
-			$_SESSION[$settings['session']['name']]['id'] = lastInsertId($pdo, $tableSessions, 'session_id');
+			$request = $pdo->prepare($sql);
+			$request->execute(array(
+				':navName'    => $records['browser']['name'],
+				':navVersion' => $records['browser']['version'],
+				':navType'    => $records['browser']['type']
+			));
+
+			$navID = $request->fetchColumn();
+
+			if($navID === false) {
+				$sql = 'INSERT INTO :table (navigator_name, navigator_version, navigator_type)
+						VALUES (:navName, :navVersion, :navType)';
+				$sql = str_replace(':table', $tableNavigators, $sql);
+
+				$request = $pdo->prepare($sql);
+				$request->execute(array(
+					':navName'    => $records['browser']['name'],
+					':navVersion' => $records['browser']['version'],
+					':navType'    => $records['browser']['type']
+				));
+
+				$navID = lastInsertId($pdo, $tableNavigators, 'navigator_id');
+			}
+
+			# STEP 2 - OS
+			$sql = 'SELECT os_id FROM :table 
+					WHERE     os_name    = :OSName 
+						  AND os_version = :OSVersion';
+			$sql = str_replace(':table', $tableOS, $sql);
+
+			$request = $pdo->prepare($sql);
+			$request->execute(array(
+				':OSName'     => $records['os']['name'],
+				':OSVersion'  => $records['os']['version']
+			));
+
+			$OSID = $request->fetchColumn();
+
+			if($OSID === false) {
+				$sql = 'INSERT INTO :table (os_name, os_version)
+						VALUES (:OSName, :OSVersion)';
+				$sql = str_replace(':table', $tableOS, $sql);
+
+				$request = $pdo->prepare($sql);
+				$request->execute(array(
+					':OSName'     => $records['os']['name'],
+					':OSVersion'  => $records['os']['version']
+				));
+
+				$OSID = lastInsertId($pdo, $tableOS, 'os_id');
+			}
+
+			# STEP 3 - GEOLOCATION
+			echo "\n\n" . '--- Geolocation ---';
+			if($settings['geoip']['enabled'] && $records['geolocation']['country']['code'] != '??') {
+				echo "\n\t GEOLOCATION ENABLED";
+				$sql = 'SELECT place_id FROM :table 
+						WHERE     place_country = :country
+							  AND place_city    = :city';
+				$sql = str_replace(':table', $tablePlaces, $sql);
+				echo "\n Check: \n$sql\n\n";
+				echo "SQL Vars:\n";
+				print_r(array(
+					':country' => $records['geolocation']['country']['code'],
+					':city'    => $records['geolocation']['city']['name']
+				));
+
+				$request = $pdo->prepare($sql);
+				$request->execute(array(
+					':country' => $records['geolocation']['country']['code'],
+					':city'    => $records['geolocation']['city']['name']
+				));
+
+				$placeID = $request->fetchColumn();
+
+				if($placeID === false) {
+					$sql = 'INSERT INTO :table (place_country, place_city)
+							VALUES (:country, :city)';
+					$sql = str_replace(':table', $tablePlaces, $sql);
+
+					echo "\nSave: \n$sql\n\n";
+					echo "SQL Vars:\n";
+					print_r(array(
+						':country' => $records['geolocation']['country']['code'],
+						':city'    => $records['geolocation']['city']['name']
+					));
+
+					$request = $pdo->prepare($sql);
+					$request->execute(array(
+						':country' => $records['geolocation']['country']['code'],
+						':city'    => $records['geolocation']['city']['name']
+					));
+
+					$placeID = lastInsertId($pdo, $tablePlaces, 'place_id');
+					echo "\n\n\tPlace ID: $placeID";
+				}
+			}
+			else {
+				echo "\n\tNO GEOLOC";
+				$placeID = 0;
+			}
+
+			echo "\n\n--- Plugins ---";
+			# STEP 4 - PLUGINS
+			$sql = 'INSERT INTO :table (session_id, plugin_name, plugin_enabled) VALUES ';
+			$sql = str_replace(':table', $tablePlugins, $sql);
+
+			$SQLVars = array(
+				':PHPSESSID' => $PHPSESSID
+			);
+
+			$i = 0;
+			foreach($records['plugins'] AS $plugin => $enabled) {
+				$sql .= '(:PHPSESSID, :plugin' . $i . ', :enabled' . $i . '), ';
+				$SQLVars[':plugin' . $i] = $plugin;
+				$SQLVars[':enabled' . $i] = $enabled ? '1' : '0';
+				$i++;
+			}
+			$sql = substr($sql, 0, -2);
+			echo "\nSQL Query:\n$sql";
+			echo "\nSQL Vars:\n";
+			print_r($SQLVars);
+			$request = $pdo->prepare($sql);
+			$request->execute($SQLVars);
+
+			# STEP 5 - SESSION ITSELF
+			$sql = 'INSERT INTO :table (session_id, 
+										session_start, session_finish, 
+										ip,
+										navigator, os, 
+										geo_lat, geo_long, geo_place, 
+										screen_definition, screen_color_depth, 
+										screen_font_smoothing, 
+										cookies, 
+										source, source_type, 
+										source_search_engine, source_keywords)
+					VALUES (:PHPSESSID, 
+							NOW(), NOW(),
+							:ip, 
+							:navID, :OSID, 
+							:lat, :long, :placeID, 
+							:screen_def, :screen_color, 
+							:screen_font, 
+							:cookies,
+							:referrer, :source_type, 
+							:source_search_engine, :source_keywords)';
+			$sql = str_replace(':table', $tableSessions, $sql);
+
+			$request = $pdo->prepare($sql);
+
+			$lat = $settings['geoip']['enabled'] ? $records['geolocation']['latitude'] : NULL;
+			$long = $settings['geoip']['enabled'] ? $records['geolocation']['longitude'] : NULL;
+			$screenFont = $records['screen']['fontSmoothing'] ? '1' : '0';
+			$cookies = $records['cookies'] ? '1' : '0';
+
+			$request->bindParam(':PHPSESSID', $PHPSESSID, PDO::PARAM_STR);
+			$request->bindParam(':ip', $ipAddress, PDO::PARAM_STR);
+			$request->bindParam(':navID', $navID, PDO::PARAM_INT);
+			$request->bindParam(':OSID', $OSID, PDO::PARAM_INT);
+			$request->bindParam(':lat', $lat, PDO::PARAM_INT);
+			$request->bindParam(':long', $long, PDO::PARAM_INT);
+			$request->bindParam(':placeID', $placeID, PDO::PARAM_INT);
+			$request->bindParam(':screen_def', $records['screen']['definition']['text'], PDO::PARAM_STR);
+			$request->bindParam(':screen_color', $records['screen']['colorDepth'], PDO::PARAM_INT);
+			$request->bindParam(':screen_font', $screenFont, PDO::PARAM_STR);
+			$request->bindParam(':cookies', $cookies, PDO::PARAM_STR);
+			$request->bindParam(':referrer', $records['source']['url'], PDO::PARAM_STR);
+			$request->bindParam(':source_type', $records['source']['type'], PDO::PARAM_STR);
+			$request->bindParam(':source_search_engine', $records['source']['name'], PDO::PARAM_STR);
+			$request->bindParam(':source_keywords', $records['source']['keywords'], PDO::PARAM_STR);
+
+			$request->execute();
+
+			$_SESSION[$settings['session']['name']]['saved'] = true;
 		}
 	}
 	catch (PDOException $e) {
